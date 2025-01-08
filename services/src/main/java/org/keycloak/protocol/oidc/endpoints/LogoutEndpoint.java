@@ -593,15 +593,17 @@ public class LogoutEndpoint {
                 .getOrDefault(TokenUtil.TOKEN_BACKCHANNEL_LOGOUT_EVENT_REVOKE_OFFLINE_TOKENS, false).toString());
 
         BackchannelLogoutResponse backchannelLogoutResponse;
+        // TODO: Uncomment when implementing backchannel logout with session ID works properly with GAR
+        // if (logoutToken.getSid() != null) {
+        //     backchannelLogoutResponse = backchannelLogoutWithSessionId(logoutToken.getSid(), identityProviderAliases,
+        //             logoutOfflineSessions, logoutToken.getSubject());
+        // } else {
+        //     backchannelLogoutResponse = backchannelLogoutFederatedUserId(logoutToken.getSubject(),
+        //             identityProviderAliases, logoutOfflineSessions);
+        // }
 
-        if (logoutToken.getSid() != null) {
-            backchannelLogoutResponse = backchannelLogoutWithSessionId(logoutToken.getSid(), identityProviderAliases,
-                    logoutOfflineSessions, logoutToken.getSubject());
-        } else {
-            backchannelLogoutResponse = backchannelLogoutFederatedUserId(logoutToken.getSubject(),
+        backchannelLogoutResponse = backchannelLogoutFederatedUserId(logoutToken.getSubject(),
                     identityProviderAliases, logoutOfflineSessions);
-        }
-
         if (!backchannelLogoutResponse.getLocalLogoutSucceeded()) {
             event.error(Errors.LOGOUT_FAILED);
             throw new ErrorResponseException(OAuthErrorException.SERVER_ERROR,
