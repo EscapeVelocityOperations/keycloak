@@ -74,7 +74,15 @@ public class JWKSUtils {
         for (JWK jwk : keySet.getKeys()) {
             JWKParser parser = JWKParser.create(jwk);
             if (jwk.getPublicKeyUse() == null && !useRequestedUseWhenNull) {
-                logger.debugf("Ignoring JWK key '%s'. Missing required field 'use'.", jwk.getKeyId());
+                // Changed: If use is missing and requested use is 'sig', add the key
+                logger.debugf("JWK key '%s' missing 'use' field and requested use is set to 'sig'", jwk.getKeyId());
+                if (requestedUse.asString().equals("sig") && parser.isKeyTypeSupported(jwk.getKeyType())) {
+                    KeyWrapper keyWrapper = wrap(jwk, parser);
+                    keyWrapper.setUse(getKeyUse("sig"));
+                    result.add(keyWrapper);
+                } else {
+                    logger.debugf("JWK key '%s' missing 'use' field and requested use is not 'sig'", jwk.getKeyId());
+                }
             } else if ((requestedUse.asString().equals(jwk.getPublicKeyUse()) || (jwk.getPublicKeyUse() == null && useRequestedUseWhenNull))
                     && parser.isKeyTypeSupported(jwk.getKeyType())) {
                 KeyWrapper keyWrapper = wrap(jwk, parser);
