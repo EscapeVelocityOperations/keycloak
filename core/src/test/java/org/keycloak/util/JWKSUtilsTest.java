@@ -95,7 +95,7 @@ public abstract class JWKSUtilsTest {
                 "] }";
         JSONWebKeySet jsonWebKeySet = JsonSerialization.readValue(jwksJson, JSONWebKeySet.class);
         PublicKeysWrapper keyWrappersForUse = JWKSUtils.getKeyWrappersForUse(jsonWebKeySet, JWK.Use.SIG);
-        assertEquals(5, keyWrappersForUse.getKeys().size());
+        assertEquals(6, keyWrappersForUse.getKeys().size());
 
         // get by both kid and alg
         KeyWrapper key = keyWrappersForUse.getKeyByKidAndAlg(kidRsa1, "RS256");
