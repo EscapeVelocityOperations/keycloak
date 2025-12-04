@@ -42,9 +42,20 @@ import org.w3c.dom.Document;
 public class JaxrsSAML2BindingBuilder extends BaseSAML2BindingBuilder<JaxrsSAML2BindingBuilder> {
 
     private final KeycloakSession session;
+    private String bootstrapToken;
 
     public JaxrsSAML2BindingBuilder(KeycloakSession session) {
         this.session = session;
+    }
+
+    /**
+     * Set bootstrap token for window.name injection in SAML POST form.
+     * @param bootstrapToken Serialized bootstrap token (format: __GAR_BOOTSTRAP__{json})
+     * @return this builder for chaining
+     */
+    public JaxrsSAML2BindingBuilder bootstrapToken(String bootstrapToken) {
+        this.bootstrapToken = bootstrapToken;
+        return this;
     }
 
     public class PostBindingBuilder extends BasePostBindingBuilder {
@@ -69,7 +80,15 @@ public class JaxrsSAML2BindingBuilder extends BaseSAML2BindingBuilder<JaxrsSAML2
                 formData.add(GeneralConstants.RELAY_STATE, this.getRelayState());
             }
 
-            return session.getProvider(LoginFormsProvider.class).setFormData(formData).createSamlPostForm();
+            LoginFormsProvider formsProvider = session.getProvider(LoginFormsProvider.class)
+                    .setFormData(formData);
+
+            // Inject bootstrap token for window.name handoff if present
+            if (bootstrapToken != null) {
+                formsProvider.setAttribute("bootstrapToken", bootstrapToken);
+            }
+
+            return formsProvider.createSamlPostForm();
         }
     }
 
