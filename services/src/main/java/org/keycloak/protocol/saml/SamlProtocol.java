@@ -583,6 +583,12 @@ public class SamlProtocol implements LoginProtocol {
         JaxrsSAML2BindingBuilder bindingBuilder = new JaxrsSAML2BindingBuilder(session);
         bindingBuilder.relayState(relayState);
 
+        // Mint bootstrap token for window.name handoff (GAR frontchannel logout)
+        String bootstrapToken = BootstrapTokenHelper.mintToken(session, realm, userSession, client, client.getClientId());
+        if (bootstrapToken != null) {
+            bindingBuilder.bootstrapToken(bootstrapToken);
+        }
+
         if ("true".equals(clientSession.getNote(JBossSAMLURIConstants.SAML_HTTP_ARTIFACT_BINDING.get()))) {
             try {
                 return buildArtifactAuthenticatedResponse(clientSession, redirectUri, samlModel, bindingBuilder);
