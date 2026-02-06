@@ -585,6 +585,12 @@ public class LogoutEndpoint {
 
         LogoutToken logoutToken = tokenManager.toLogoutToken(encodedLogoutToken).get();
 
+        // Attach IDP session ID to the event early so all event dispatches include it
+        // This enables event listeners (e.g. SSE notification) to look up connections by IDP session ID
+        if (logoutToken.getSid() != null) {
+            event.detail("idp_session_id", logoutToken.getSid());
+        }
+
         Stream<String> identityProviderAliases = tokenManager.getValidOIDCIdentityProvidersForBackchannelLogout(realm,
                 session, encodedLogoutToken, logoutToken)
                 .map(idp -> idp.getConfig().getAlias());
@@ -608,6 +614,11 @@ public class LogoutEndpoint {
                     "There was an error in the local logout",
                     Response.Status.NOT_IMPLEMENTED);
         }
+
+        // Fire LOGOUT event on the success path to notify event listeners (SSE clients)
+        // logoutUserSession() may have already fired event.success() for found sessions,
+        // but this ensures notification even when no broker session was matched
+        event.success();
 
         session.getProvider(SecurityHeadersProvider.class).options().allowEmptyContentType();
 
