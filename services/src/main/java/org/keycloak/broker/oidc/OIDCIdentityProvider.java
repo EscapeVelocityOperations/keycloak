@@ -625,6 +625,23 @@ public class OIDCIdentityProvider extends AbstractOAuth2IdentityProvider<OIDCIde
         if (tokenResponse != null && tokenResponse.getSessionState() != null) {
             identity.setBrokerSessionId(getConfig().getAlias() + "." + tokenResponse.getSessionState());
         }
+        // Fallback: if tokenResponse didn't provide session_state, try the id_token's sid claim
+        // This is needed for IDPs (like GAR) that don't include session_state in the token response
+        // but do send sid in backchannel logout tokens
+        if (identity.getBrokerSessionId() == null && idToken != null) {
+            String sid = (String) idToken.getOtherClaims().get("sid");
+            if (sid == null) {
+                // Also try session_state from the id_token itself
+                Object sessionState = idToken.getOtherClaims().get("session_state");
+                if (sessionState instanceof String) {
+                    sid = (String) sessionState;
+                }
+            }
+            if (sid != null) {
+                identity.setBrokerSessionId(getConfig().getAlias() + "." + sid);
+                logger.debugf("Set brokerSessionId from id_token sid/session_state: %s", identity.getBrokerSessionId());
+            }
+        }
         if (tokenResponse != null) identity.getContextData().put(FEDERATED_ACCESS_TOKEN_RESPONSE, tokenResponse);
         if (tokenResponse != null) processAccessTokenResponse(identity, tokenResponse);
 
