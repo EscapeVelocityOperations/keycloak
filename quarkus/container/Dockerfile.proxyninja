@@ -1,0 +1,48 @@
+# Dockerfile for Keycloak with GAR patches (proxyninja).
+#
+# Replaces the services JAR with the locally-built version (LogoutEndpoint
+# LOGOUT event with idp_session_id; OIDCIdentityProvider brokerSessionId from
+# id_token sid claim), preserving the generated ServicesLogger_$logger class
+# from the original JAR (produced by the annotation processor in upstream
+# releases, not by a plain local `mvn install`).
+#
+# The historical JWKSUtils missing-'use' patch (keycloak-core) is upstreamed
+# since 26.6: OIDCIdentityProviderPublicKeyLoader passes
+# useRequestedUseWhenNull=true. No core jar replacement needed anymore.
+#
+# Build (from the repo root, branch <version>-proxyninja):
+#   mvn clean install -pl services -am -DskipTests
+#   docker buildx build --platform linux/amd64 --push \
+#     -f quarkus/container/Dockerfile.proxyninja \
+#     --build-arg KC_VERSION=26.6.3 \
+#     -t 647487497610.dkr.ecr.eu-west-3.amazonaws.com/keycloak:26.6.3-proxyninja .
+ARG KC_VERSION=26.6.3
+
+FROM quay.io/keycloak/keycloak:${KC_VERSION} AS base
+
+FROM eclipse-temurin:17-jdk AS patcher
+ARG KC_VERSION
+# Extract the generated logger class from the original JAR (not produced by local Maven build)
+COPY --from=base /opt/keycloak/lib/lib/main/org.keycloak.keycloak-services-${KC_VERSION}.jar /tmp/original.jar
+RUN mkdir -p /tmp/logger && cd /tmp/logger && \
+    jar xf /tmp/original.jar org/keycloak/services/ServicesLogger_\$logger.class
+
+# Copy the locally-built JAR and inject the missing generated class
+COPY services/target/keycloak-services-${KC_VERSION}.jar /tmp/patched.jar
+RUN cd /tmp/logger && \
+    jar uf /tmp/patched.jar org/keycloak/services/ServicesLogger_\$logger.class
+
+# Build final Keycloak image with the complete patched JAR
+FROM quay.io/keycloak/keycloak:${KC_VERSION}
+ARG KC_VERSION
+COPY --from=patcher /tmp/patched.jar /opt/keycloak/lib/lib/main/org.keycloak.keycloak-services-${KC_VERSION}.jar
+RUN /opt/keycloak/bin/kc.sh build --db=postgres
+
+USER 1000
+
+EXPOSE 8080
+EXPOSE 8443
+# KC 25+ management interface (health/metrics)
+EXPOSE 9000
+
+ENTRYPOINT ["/opt/keycloak/bin/kc.sh"]
